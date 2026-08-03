@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PSG-JEPA | Project Page</title>
+  <meta
+    name="description"
+    content="Project page for PSG-JEPA: Physical State Grounding for JEPA World Models."
+  >
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <h1>Is Forward Prediction Enough? Physical State Grounding for JEPA World Models</h1>
+      <p class="venue">Anonymous submission &middot; Under review</p>
+      <div class="authors" aria-label="Authors">
+        <span class="author">Anonymous Authors</span>
+      </div>
+      <p class="affiliations">
+        Anonymous Institution
+      </p>
+
+      <div class="button-row">
+        <a class="button button-disabled" href="#" aria-disabled="true">Paper (under review)</a>
+        <a class="button button-disabled" href="#" aria-disabled="true">Code (coming soon)</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="section">
+      <h2>Abstract</h2>
+      <p class="section-text abstract-text">
+        JEPA world models learn by predicting future latents, but does forward prediction alone
+        yield representations that expose the robot's physical state? We find that purely
+        forward-predictive JEPA world models leave key physical quantities, such as end-effector
+        orientation, hard to recover from their latents, a robot-centric identifiability gap. We
+        introduce PSG-JEPA, an end-to-end JEPA world model that additionally grounds each latent in
+        the robot's proprioceptive state (static grounding) and each temporally ordered latent pair
+        in the multi-horizon joint-angle change it undergoes (dynamic grounding). Both grounding
+        heads are used only during training and discarded at inference, so PSG-JEPA keeps the
+        original JEPA inference cost. Across latent identifiability probes, goal-conditioned planning
+        (OGBench-Cube and OGBench-Scene), multi-task policy learning (LIBERO-Goal), and real-robot
+        manipulation, PSG-JEPA closes the identifiability gap and achieves the best overall
+        performance. For example, it recovers end-effector yaw at <em>r</em>&nbsp;=&nbsp;0.94 (versus
+        0.08 for a forward-only baseline), reaches 95% planning success after only 5 planner epochs,
+        and improves average real-robot success from 60.0% to 79.3%.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2>Introduction</h2>
+      <p class="section-text">
+        Joint-embedding predictive architectures (JEPAs) build world models by predicting future
+        latents from past ones. This forward-prediction objective produces representations that are
+        useful for rollout, yet it never asks the latent to expose the physical state of the
+        embodiment. As the teaser figure shows, a forward-only JEPA can predict the next latent
+        accurately while leaving robot-centric quantities, most sharply end-effector yaw, nearly
+        unrecoverable from a single latent. PSG-JEPA keeps the forward-prediction backbone unchanged
+        and adds two lightweight grounding objectives that tie latents to physical state and latents
+        pairs to physical change. The grounding heads are discarded after training, so the closed
+        identifiability gap comes at zero inference overhead and translates into more sample-efficient
+        planning and stronger policy learning.
+      </p>
+      <figure class="media-block">
+        <img
+          src="assets/fig-teaser.png"
+          alt="PSG-JEPA overview: forward-prediction JEPA versus physically grounded PSG-JEPA and its advantages."
+          loading="lazy"
+        >
+        <figcaption>
+          (a) A forward-prediction JEPA is predictive but physically ungrounded. (b) PSG-JEPA adds a
+          state head <em>H<sub>s</sub></em> that maps each latent to proprioceptive state and a
+          transition head <em>H<sub>&Delta;</sub></em> that maps latent pairs to multi-horizon
+          joint-angle change; both heads are training-only. (c) The grounding closes the physical
+          identifiability gap and yields more sample-efficient planning and stronger policy learning
+          in simulation and on a real robot.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section class="section">
+      <h2>Method</h2>
+      <p class="section-text">
+        PSG-JEPA retains the JEPA encoder&ndash;predictor backbone and its forward-prediction loss,
+        and augments it with two grounding objectives applied to the same latents:
+        <em>L</em><sub>PSG</sub> = <em>L</em><sub>JEPA</sub> +
+        &lambda;<sub>g</sub>(<em>L</em><sub>static</sub> + <em>L</em><sub>dynamic</sub>). A shared
+        state head regresses each latent to the robot's proprioceptive state (static grounding),
+        while a transition head regresses each temporally ordered latent pair
+        (<em>z<sub>t+i</sub></em>, <em>z<sub>t+i+k</sub></em>) to the net joint-angle change
+        &Delta;<em>q<sub>t+i,k</sub></em> across multiple horizons (dynamic grounding). Grounding acts
+        as an auxiliary signal during training only; both heads are removed at inference, leaving the
+        encoder and predictor, and hence the inference cost, unchanged.
+      </p>
+      <figure class="media-block">
+        <img
+          src="assets/fig-method.png"
+          alt="PSG-JEPA architecture with a shared encoder, a shared state head, and a transition head over latent pairs."
+          loading="lazy"
+        >
+        <figcaption>
+          Architecture of PSG-JEPA. A shared encoder produces per-frame latents. The shared state
+          head <em>H<sub>s</sub></em> grounds each latent in proprioceptive state via
+          <em>L</em><sub>static</sub>, and the transition head <em>H<sub>&Delta;</sub></em> grounds
+          all temporally ordered latent pairs in their multi-horizon joint-angle change via
+          <em>L</em><sub>dynamic</sub>. Both heads are discarded after world-model training.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section class="section">
+      <h2>Experiments</h2>
+
+      <div class="experiment-group">
+        <h3>Latent Identifiability</h3>
+        <p class="section-text">
+          We freeze each encoder and fit linear (ridge) and non-linear (MLP) probes from the frozen
+          latents to physical quantities on OGBench-Cube. Cells report linear&nbsp;/&nbsp;MLP Pearson
+          <em>r</em>. PSG-JEPA makes robot proprioception, especially end-effector yaw, far more
+          identifiable than a forward-only baseline.
+        </p>
+        <figure class="media-block table-block">
+          <div class="table-scroll">
+            <table class="result-table" aria-label="Single-latent state probes on OGBench-Cube">
+              <colgroup>
+                <col class="col-category">
+                <col class="col-method">
+                <col>
+                <col>
+                <col>
+                <col>
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Method</th>
+                  <th>JointPos</th>
+                  <th>EEPos</th>
+                  <th>Gripper</th>
+                  <th>EE-yaw</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="category" rowspan="3">Baselines</td>
+                  <td>LeWM</td>
+                  <td>0.71 / 0.69</td>
+                  <td>0.99 / 0.99</td>
+                  <td>0.93 / 0.96</td>
+                  <td>0.08 / 0.08</td>
+                </tr>
+                <tr>
+                  <td>DINOv2</td>
+                  <td>0.73 / 0.72</td>
+                  <td>0.99 / 0.94</td>
+                  <td>0.84 / 0.84</td>
+                  <td>0.51 / 0.50</td>
+                </tr>
+                <tr>
+                  <td>LeWM<sub>ActionIDM</sub></td>
+                  <td>0.75 / 0.72</td>
+                  <td>1.00 / 0.99</td>
+                  <td>0.96 / 0.98</td>
+                  <td>0.11 / 0.10</td>
+                </tr>
+                <tr class="highlight-row">
+                  <td class="category">Ours</td>
+                  <td><strong>PSG-JEPA</strong></td>
+                  <td class="best">0.83 / 0.81</td>
+                  <td class="best">1.00 / 0.99</td>
+                  <td class="best">0.97 / 0.98</td>
+                  <td class="best">0.94 / 0.98</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <figcaption>
+            Single-latent state probes. PSG-JEPA raises end-effector yaw recoverability from
+            <em>r</em>&nbsp;=&nbsp;0.08 (LeWM) to 0.94&nbsp;/&nbsp;0.98 while also improving joint-angle
+            and gripper identifiability.
+          </figcaption>
+        </figure>
+        <figure class="media-block table-block">
+          <div class="table-scroll">
+            <table class="result-table" aria-label="Transition probes on OGBench-Cube">
+              <colgroup>
+                <col class="col-category">
+                <col class="col-method">
+                <col>
+                <col>
+                <col>
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Method</th>
+                  <th>JointVel</th>
+                  <th>GripVel</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="category" rowspan="3">Baselines</td>
+                  <td>LeWM</td>
+                  <td>0.68 / 0.66</td>
+                  <td>0.44 / 0.47</td>
+                  <td>0.74 / 0.76</td>
+                </tr>
+                <tr>
+                  <td>DINOv2</td>
+                  <td>0.51 / 0.39</td>
+                  <td>0.20 / 0.12</td>
+                  <td>0.54 / 0.45</td>
+                </tr>
+                <tr>
+                  <td>LeWM<sub>ActionIDM</sub></td>
+                  <td>0.73 / 0.69</td>
+                  <td>0.67 / 0.73</td>
+                  <td>0.80 / 0.84</td>
+                </tr>
+                <tr class="highlight-row">
+                  <td class="category">Ours</td>
+                  <td><strong>PSG-JEPA</strong></td>
+                  <td class="best">0.75 / 0.75</td>
+                  <td class="best">0.69 / 0.76</td>
+                  <td class="best">0.80 / 0.86</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <figcaption>
+            Transition probes from adjacent latent pairs (<em>z<sub>t</sub></em>,
+            <em>z<sub>t+1</sub></em>). PSG-JEPA best exposes joint velocity, gripper velocity, and the
+            executed action, without ever using velocity or action as an explicit grounding target.
+          </figcaption>
+        </figure>
+      </div>
+
+      <div class="experiment-group">
+        <h3>Goal-Conditioned Planning</h3>
+        <p class="section-text">
+          Using a frozen encoder and a GC-IDM planner on OGBench-Cube, PSG-JEPA plans more
+          efficiently than forward-only, action-supervised, and large-scale pretrained baselines,
+          along both the optimization-budget and demonstration-data axes.
+        </p>
+        <figure class="media-block">
+          <div class="fig-pair">
+            <img
+              src="assets/fig-planning_sub_epochs.png"
+              alt="Planning success rate versus GC-IDM training epochs on OGBench-Cube."
+              loading="lazy"
+            >
+            <img
+              src="assets/fig-planning_sub_data.png"
+              alt="Planning success rate versus demonstration-data fraction on OGBench-Cube."
+              loading="lazy"
+            >
+          </div>
+          <figcaption>
+            Goal-conditioned planning on OGBench-Cube. Left: success rate versus GC-IDM planner
+            training epochs (optimization efficiency); PSG-JEPA reaches 95% after only 5 planner
+            epochs. Right: success rate versus demonstration-data fraction (data efficiency).
+            PSG-JEPA leads at every budget, and OGBench-Scene reproduces the same ordering.
+          </figcaption>
+        </figure>
+      </div>
+
+      <div class="experiment-group">
+        <h3>Policy Learning and Real-World Manipulation</h3>
+        <p class="section-text">
+          On multi-task policy learning (LIBERO-Goal) PSG-JEPA improves success from 77.7% to 85.3%.
+          On a physical dual-arm Cobot, using the same policy and evaluation protocol as the LeWM
+          baseline, PSG-JEPA improves success on all three tasks.
+        </p>
+        <figure class="media-block">
+          <img
+            src="assets/fig-real_robot.png"
+            alt="Real-world dual-arm platform and per-task success rates for LeWM versus PSG-JEPA."
+            loading="lazy"
+          >
+          <figcaption>
+            Real-world manipulation on a dual-arm Cobot. PSG-JEPA outperforms LeWM on Place-to-Bread
+            (84% vs. 62%), Place-to-Plate (74% vs. 58%), and Pour-Water (80% vs. 60%), i.e., 79.3% vs.
+            60.0% on average, showing that physically grounded representations transfer to real
+            manipulation.
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>BibTeX</h2>
+      <div class="bibtex-block">
+        <div class="bibtex-head">
+          <button class="copy-button" type="button" data-copy-target="citation-text">Copy</button>
+        </div>
+        <pre id="citation-text"><code>@inproceedings{anonymous2027psgjepa,
+  title     = {Is Forward Prediction Enough? Physical State Grounding for JEPA World Models},
+  author    = {Anonymous Authors},
+  booktitle = {Under review},
+  year      = {2027},
+  note      = {Anonymous submission},
+}</code></pre>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
