@@ -84,6 +84,23 @@ p {
   line-height: 1.4;
 }
 
+.author {
+  white-space: nowrap;
+}
+
+.author:not(:last-child)::after {
+  content: ",";
+}
+
+.author sup {
+  font-size: 0.56em;
+}
+
+.dot-sep {
+  display: inline-block;
+  padding: 0 0.35em;
+}
+
 .affiliations {
   margin: 10px auto 0;
   max-width: 1040px;
